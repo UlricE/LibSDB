@@ -72,13 +72,13 @@ sdb-config: sdb-config.sh Makefile
 	chmod 0755 sdb-config
 
 sdb_client: sdb_client.o sdb-config
-	$(CC) -I. -L. -lsdb $(LDFLAGS) -o $@ sdb_client.o
+	$(CC) sdb_client.o -I. -L. -lsdb $(LDFLAGS) -o $@
 
 sdbd_client: sdbd_client.o sdbd_driver.o sdb-config
-	$(CC) -I. -L. $(LDFLAGS) -o $@ sdbd_client.o sdbd_driver.o
+	$(CC) sdbd_client.o sdbd_driver.o -I. -L. $(LDFLAGS) -o $@
 
 sdbd: sdbd.o sdb-config
-	$(CC) -I. -L. -lsdb $(LDFLAGS) -o $@ sdbd.o
+	$(CC) sdbd.o -I. -L. -lsdb $(LDFLAGS) -o $@
 
 install-man:
 	mkdir -p $(MANDIR)/man3 && cp $(MAN3) $(MANDIR)/man3
