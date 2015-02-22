@@ -1,0 +1,150 @@
+
+Start with:
+
+	./configure --help
+
+to figure out what options to use. Then type:
+
+	./configure [ options ]
+	make
+	make install
+
+This installs the library into /usr/local/lib and compiles the sample
+command-line program sdb_client.
+
+The normal use of this code is as part of another application.
+The easiest way to do this is to use sdb_client.c as a template to
+modify the application code. The script sdb-config can be used to
+get the right set of options to add to the Makefile. Like this:
+
+cc -c `sdb-config --cflags` sdb_client.c
+cc -o sdb_client `sdb-config --libs` sdb_client.o
+
+Of course, nothing will work unless the database is correctly
+installed, including client libraries.
+
+The sdbd driver is always built.
+
+
+Platforms
+---------
+
+This library is developed on Linux and tested on the
+following platforms:
+
+ - Linux x86 with libc5 (gcc, Gnu make, Gnu linker)
+ - Linux x86 with libc6 aka glibc (gcc, Gnu make, Gnu linker)
+ - Linux alpha (gcc, Gnu make, Gnu linker)
+ - Solaris (gcc, Sun make, Sun linker)
+ - MacOSX (gcc, Apple make, Apple linker)
+
+Compiling with anything other than GCC is not supported.
+GCC on HP-UX has issues with socket.h.
+
+
+If the build won't work
+-----------------------
+
+To get support for the desired features, you must give the corresponding
+options to configure. Type "./configure --help" for details.
+
+Mysql comes with its own script mysql_config, which is supposed
+to reveal the details libsdb needs to configure itself. If the
+script isn't installed, the information must be given manually by
+running configure with
+
+LDFLAGS=-L/usr/local/lib/mysql ./configure --with-mysql
+
+This is because Mysql hides its libraries in a subdirectory.
+On Linux (at least), the directory must also be added to
+/etc/ld.so.conf and /sbin/ldconfig must be rerun.
+
+On MacOSX, the mysql_config script is broken and adds
+"-arch i386".
+
+
+
+Very old versions of Sqlite require gdbm, so make sure it is installed
+before running
+
+./configure --with-gdbm --with-sqlite
+
+Newer versions of Sqlite do not require gdbm.
+
+
+Postgres, like several others, likes to be installed in places
+where no script can find it. In my case, postgres lives in
+/home/ulric/pgsql, so I run configure like this:
+
+LDFLAGS=-L/home/ulric/pgsql/lib CFLAGS=-I/home/ulric/pgsql/include ./configure -
+-with-postgres
+
+It ain't pretty, but it works.
+
+
+Oracle: Make sure that ORACLE_HOME is set before running configure:
+
+./configure --with-oracle
+
+Tested with Oracle 8.1.7 - 11.1.0 for Linux and Solaris.
+
+Oracle like to move things around. Libraries used to live in
+$ORACLE_HOME/lib and headers in $ORACLE_HOME/rdbms/demo. The
+headers now live in $ORACLE_HOME/rdbms/public, unless you use
+the Oracle Instant Client in which case the libraries live
+directly under the toplevel directory and the headers in the
+subdirectory sdk/include. Sigh. The configure script tries to
+compensate for the various locations.
+
+In case you use the Instant Client, there is no proper ORACLE_HOME.
+Let's say the client is installed in the directory:
+
+/opt/oracle/OracleInstantClient/instantclient_11_1
+
+You then need to set LD_LIBRARY_PATH so the libraries can be found:
+
+LD_LIBRARY_PATH=/opt/oracle/OracleInstantClient/instantclient_11_1
+export LD_LIBRARY_PATH
+
+And tell sdb's configure script the location:
+
+./configure --with-oracle=/opt/oracle/OracleInstantClient/instantclient_11_1
+
+The Instant Client is quite nice, because it allows the database to
+be specified without editing tnsnames.ora. Like this:
+
+sdb_client oracle:uid=username:pwd=password:db=//hostname/sid
+
+
+Ingres: Make sure that II_SYSTEM is set before running configure:
+
+./configure --with-ingres
+
+Libraries live in $II_SYSTEM/ingres/lib and headers in
+$II_SYSTEM/ingres/files.
+
+
+Building on Windows
+-------------------
+Running SDB on Windows is more useful than it seems. Windows already has
+a standard interface to databases (ODBC), so there is little point in
+using anything else for applications on that platform. But it is sometimes
+difficult to access commercial databases from other operating systems
+(usually because the necessary client libraries aren't available), and a
+Windows version of the sdb proxy solves that problem. Example:
+
+        Unix                   Windows          Anything
+.--------------------.    .--------------.    .----------.
+| Application -> SDB | -> | SDBD -> ODBC | -> | Database |
+`--------------------´    `--------------´    `----------´
+
+The "Windows" and "Anything" boxes may be one and the same.
+
+There is little reason to implement anything more than the ODBC driver on
+Windows, and nothing else has been tested. So to build on Windows, type:
+
+./configure --with-odbc=odbc32
+make
+make install
+
+Cygwin is required.

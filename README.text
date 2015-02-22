@@ -1,0 +1,49 @@
+
+Author: Lahcen EL HADDATI (elhaddati@hotmail.com)
+
+This is text_driver, the same thing as mysql_driver but it gets
+information from a text file. The text file must be like this :
+
+{name}|{email}|{adress}|{phone}|
+Marry|marry@mail.com|Paris|00-11-22-33-44|
+Jean|jean@mail.com|London|00-33-33-33-33|
+Paul|paul@mail.com|Washington|00-77-66-55-44|
+Lahcen|lahcen@mail.com|Tokyo|00-88-22-77-44|
+Nicolas|nicolas@mail.com|Caen|00-44-88-00-44|
+
+
+
+We use a single function, text_driver:
+
+static int text_driver(void *pdb, char *d, char *q,
+	int (*callback)(int, char **, void *), void *closure)
+
+*- d is the directory where the text file is.
+
+*- q is a query like an SQL string , such as
+
+        select * from file where name='lahcen'
+
+but it does not support queries like : 
+        select count(*) from ...
+or      select * from file where name='lehcen' and phone='....'
+ 
+
+text_driver calls the callback once for each row returned. No rows does
+not necessarily indicate an error condition; 
+
+ text_driver returns the number of rows or -1 for error.
+
+*- The callback takes three arguments, an integer indicating the number
+of columns in the reply, an array of pointers to the fields and a
+pointer to some arbitrary data that the callback might need.
+Values are always returned as strings. Synopsis:
+
+        int callback(int n, char **p, void *closure)
+
+
+
+
+N.B. I did that text_driver very very quickly, because I have to use it.
+So it is not well done but it works. And I think that there is some bugs
+that I'll try to resolve when I'll have time.

@@ -1,0 +1,46 @@
+# This file contains rules for Darwin/MacOSX with GCC.
+
+LIBNAME = lib$(PACKAGE)
+
+STATICLIB = $(LIBNAME).a
+
+SHAREDLIB = $(LIBNAME).dylib
+SONAME = $(LIBNAME).$(MAJOR).dylib
+SOVERSION = $(LIBNAME).$(VERSION).dylib
+
+.SUFFIXES: .lo
+
+.c.lo:
+	$(CC) $(CFLAGS) -fno-common -o $@ -c $<
+
+.c.o:
+	$(CC) $(CFLAGS) -o $@ -c $<
+
+$(SHAREDOBJ): $(HEADERS)
+$(STATICOBJ): $(HEADERS)
+
+$(STATICLIB): $(STATICOBJ)
+	ar cru $(STATICLIB) $(STATICOBJ)
+	ranlib $(STATICLIB)
+
+$(SHAREDLIB): $(SHAREDOBJ)
+	gcc -dynamiclib -flat_namespace -undefined suppress \
+		-install_name $(LIBDIR)/$(SONAME) \
+		-compatibility_version $(MAJOR).$(MINOR) \
+		-current_version $(VERSION) \
+		-o $(SHAREDLIB) \
+		$(SHAREDOBJ)
+
+install-lib: $(STATICLIB) $(SHAREDLIB)
+	make uninstall-lib
+	make all
+	mkdir -p $(LIBDIR)
+	cp $(SHAREDLIB) $(LIBDIR)/$(SOVERSION)
+	cp $(STATICLIB) $(LIBDIR)
+	cd $(LIBDIR) && \
+	ln -s $(SOVERSION) $(SONAME) && \
+	ln -s $(SOVERSION) $(SHAREDLIB)
+
+uninstall-lib:
+	cd $(LIBDIR) && rm -f $(SOVERSION) $(SONAME) $(SHAREDLIB) $(STATICLIB)
+

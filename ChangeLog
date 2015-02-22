@@ -1,0 +1,157 @@
+
+101005	More tweaking of the configuration script for compatibility
+	with the latest instant oracle client.
+	Released 0.10.1.
+
+080430	Oracle driver again: increased the size of the hda to 512 bytes
+	for compatibility with 64-bit platforms.
+	Released 0.10.0.
+
+080427	Made the Oracle driver build compatible with Oracle Instant Client.
+
+080425	Added db option to oracle url. These are now equivalent:
+	oracle:uid=username/password@database
+	oracle:uid=username:pwd=password:db=database
+
+080311	Added --disable-shared and --disable-static options to
+	the configure script.
+	Released 0.9.0.
+
+080307	In sdb.c, function sdb_close: don't call the driver's close
+	function if the db is null (i.e. there is nothing to close).
+
+080306	Started integrating Freetds for Microsoft SQL and Sybase.
+	Queries are submitted but returned values are not handed
+	off to the callback.
+
+080305	Oracle driver updated for 11g.
+	Make sure that the Oracle driver treats null values as NULL.
+	Released 0.8.0.
+
+080304	Initial support for Ingres.
+
+080229	Added support for shsql/quisp.
+	Changed clilen type to socklen_t in sdbd.c.
+	Released 0.7.0.
+
+051029	Added -c option to sdb_client to read an sql query from the
+	command line rather than interactively.
+	Released 0.6.2.
+
+050219	In sdb_query: if the url refers to an already opened connection,
+	check that the connection is in fact opened. This is important
+	for mistyped urls.
+	Released 0.6.1.
+
+050110	Added --platform flag to the configure script.
+
+050110	Added support for Sqlite 3.
+	Added another minimal example to the manpage.
+	Released 0.6.0.
+
+050109	Dumped automake. Its self-incompatibility drives me nuts!
+
+040506	More bugfixes from Guillaume Cottenceau to the Postgres
+	and Mysql drivers: don't segfault if sdb_close is called
+	with a NULL argument.
+	Released 0.5.5.
+
+040423	Bugfix in the postgres driver: the closer should be called
+	sdb_postgres_close. Released 0.5.4.
+
+040421	Patch for persistent Postgres connections from
+	Guillaume Cottenceau <gc at mnc.ch>. Released 0.5.3.
+
+040227	Check for Solaris specific libraries.
+	Added patch for persistent Oracle connections
+	from Denis Ovsienko <pilot@altlinux.ru>.
+
+020828	Do not link sdb_client against .libs/libsdb.so. It breaks the
+	build on certain platforms.
+	sdb_client: only print prompt if stdin is a terminal.
+	sdb_client: Option -s changes the separator in output.
+	Released 0.5.1.
+
+020630	Added a driver by Lahcen EL HADDATI <elhaddati@hotmail.com>
+	which accepts queries on plain text files in a SQL-like language.
+	Released 0.5.0.
+
+020621	Fixed bug in sdbd: null values in the result set caused the
+	process to crash. Now it returns an empty string, which is wrong
+	but better than crashing.
+	Check memory allocations better in sdbd_driver.
+
+020620	Mimer driver that actually works.
+	Released 0.4.1.
+
+020530	MiniSQL driver. Use --with-msql=/path/to/msql if it is not
+	installed in /usr/local/Hughes.
+	Released 0.4.0.
+
+020526	Implemented open and close for mysql driver.
+	Wrote manpages for sdb_open, sdb_close, sdb_query, sdb_init and sdbd.
+	Released 0.3.0.
+
+020522	Added sdb_open and sdb_close for connections that are to be
+	used for more than one query.
+	Implemented open and close for sqlite driver.
+	Modified the sdbd protocol to allow connections to be used for
+	multiple queries. Updated sdbd.c and sdbd_driver.c to use the new
+	protocol if it is implemented on both server and client.
+
+020520	Added a check in sdb_query to call sdb_init if it hasn't already
+	been done. This makes sdb_init calls from applications optional.
+
+020515	Improved error checking in gdbm_driver.c.
+
+020514	Added squid_sdb_auth.c, a program to authenticate Squid proxy
+	users to any database supported by libsdb.
+	Released 0.2.4.
+
+020503	Renamed all the drivers from XXX.c to XXX_driver.c.
+	Wrote a new driver (sdbd_driver.c) for proxied queries.
+	The new driver is designed so it can be compiled statically
+	into an application without the rest of libsdb.
+
+020429	Added optional argument to --with-odbc option, plus the necessary
+	tweaking to get the odbc driver running on Windows.
+	Changed #include <mysql/mysql.h> to just #include <mysql.h>.
+	Released 0.2.3.
+
+020425	New flags -d and -f to sdbd control debug message level and
+	background/foreground operation.
+	Made sdbd less eager to error out at every problem.
+
+020209	Modification to postgres driver to let it work with
+	user/password login (srosso@libero.it).
+	Released 0.2.2.
+
+020105	Fixed compiler warning in sdbd_client.c (2nd arg to connect).
+
+011220	Updated automake, autoconf and libtool.
+
+011204	Updated configuration for Mysql.
+
+010910	SO_REUSEADDR in sdbd.c.
+
+010611	Fixed silly bug in sdbd.c and sdbd_client.c: readdata and writedata
+	would fail when data was read and written in small segments.
+	Released 0.2.1.
+
+010610	Sample client for sdbd in sdbd_client. Released 0.2.0.
+
+010601	Proxy daemon called sdbd.
+
+010520	Updated documentation and sdb_client.
+	Released 0.1.0.
+
+010517	Added trivial gdbm driver (adapted from Siag).
+
+010515	Added autoconf and libtool.
+
+010513	Released 0.0.1.
+
+010512	Cleaned up namespace by prefixing all globals with sdb_.
+
+010511	Started project by copying database code from Ucronadm.
+

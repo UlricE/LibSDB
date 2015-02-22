@@ -1,0 +1,159 @@
+.TH SDB 3 LOCAL
+
+.SH NAME
+
+sdb_init, sdb_open, sdb_query, sdb_close \- the Simple Database Library.
+
+.SH SYNOPSIS
+
+.B #include <sdb.h>
+.sp
+.BI "void sdb_init();"
+.br
+.BI "char *sdb_open(char *" url ");"
+.br
+.BI "void sdb_close(char *" id ");"
+.br
+.BI "int sdb_query(char *" url ", char *" query ", int (*" callback ")(int, char **, void *), void *" closure ");"
+
+.SH DESCRIPTION
+
+The SDB library allows applications to support multiple database management
+systems with negligeable overhead, in terms of code as well as system
+resources.
+
+.PP
+.B sdb_init()
+initializes the library and registers the database drivers. It is
+not necessary to call sdb_init explicitly, since it will be done
+automatically when needed.
+.PP
+.B sdb_open()
+opens a database connection that can be used for multiple queries. This
+is optional; calling sdb_query directly will simply open and close the
+connection for each query. sdb_open returns a connection id which is used
+in place of the url in calls to sdb_query.
+.PP
+.B sdb_query()
+calls the callback once for each row returned. No rows does not indicate
+an error condition. sdb_query returns the number of rows or -1 for error.
+The callback takes three arguments, an integer indicating the number of
+columns in the result, an array of pointers to the fields and a pointer
+to some arbitrary data that the callback might need. Values are always
+returned as strings.
+.PP
+.B sdb_close()
+closes the database connection opened by sdb_open.
+
+.SH EXAMPLES
+
+This minimal program runs queries from the command line.
+
+.nf
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <sdb.h>
+
+static int callback(int n, char **p, void *closure)
+{
+    int i;
+    for (i = 0; i < n; i++) {
+        printf("%s\\t", p[i]);
+    }
+    printf("\n");
+    return 0;
+}
+
+int main(int argc, char **argv)
+{
+    if (argc != 3) {
+        fprintf(stderr, "Usage: sdb_demo url query\\n");
+        return EXIT_FAILURE;
+    }
+    sdb_query(argv[1], argv[2], callback, NULL);
+    return EXIT_SUCCESS;
+}
+
+.fi
+
+This program can be used to authenticate Squid proxy users.
+
+.nf
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
+#include <sdb.h>
+
+static int cb_db(int n, char **p, void *closure)
+{
+    return 0;
+}
+
+int main(int argc, char **argv)
+{
+    char *url, query[1024];
+    int n;
+    char buf[256];
+    char *user, *passwd, *p;
+    setbuf(stdout, NULL);
+    if (argc != 2) {
+        fprintf(stderr, "Usage: sdb_auth url\\n");
+        exit(1);
+    }
+    url = argv[1];
+    while (fgets(buf, 256, stdin) != NULL) {
+        if ((p = strchr(buf, '\\n')) != NULL)
+            *p = '\\0';          /* strip \\n */
+        if ((user = strtok(buf, " ")) == NULL) {
+            printf("ERR\\n");
+            continue;
+        }
+        if ((passwd = strtok(NULL, "")) == NULL) {
+            printf("ERR\\n");
+            continue;
+        }
+        sprintf(query,
+                "select * from htpasswd "
+                "where user = '%s' "
+                "and passwd = '%s'",
+                user, passwd);
+        n = sdb_query(url, query, cb_db, NULL);
+        if (n < 1) {
+            printf("ERR\\n");
+        } else {
+            printf("OK\\n");
+        }
+    }
+    exit(0);
+}
+
+.fi
+
+.SH SEE ALSO
+
+sdbd.8
+
+Example clients in sdb_client.c and sdbd_client.c.
+
+.SH AUTHOR
+
+Copyright (c) 2000-2005  Ulric Eriksson <ulric@siag.nu>
+
+This library is free software; you can redistribute it and/or
+modify it under the terms of the GNU Library General Public
+License as published by the Free Software Foundation; either
+version 2 of the Licence, or (at your option) any later version.
+
+This library is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+Library General Public License for more details.
+
+You should have received a copy of the GNU Library General Public
+License along with this library; if not, write to the Free Software
+Foundation, Inc., 59 Temple Place - Suite 330, Boston,
+MA 02111-1307, USA.
+

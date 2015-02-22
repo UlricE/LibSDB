@@ -1,0 +1,2 @@
+This directory contains the platform-specific parts of the Makefile.
+The name is the same as the output of the `uname` command.

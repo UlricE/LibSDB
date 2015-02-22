@@ -1,0 +1,157 @@
+
+Author: Ulric Eriksson (ulric@siag.nu)
+
+This is libsdb, the simple database library, which provides a way
+to support multiple database management systems in an application
+with negligeable overhead, in terms of code as well as system
+resources.
+
+Supported databases:
+
+ - Gdbm
+ - Ingres
+ - Lago
+ - Microsoft SQL (requires freetds >= 0.64)
+ - Mimer
+ - Msql
+ - Mysql
+ - ODBC
+ - Oracle
+ - Postgresql
+ - Sdbd (libsdb proxy)
+ - Shsql/quisp
+ - Sqlite versions 2 and 3
+ - Sybase (untested, see Microsoft SQL)
+ - Text
+
+The driver for ODBC can be used for any database
+supported by UnixODBC, including Sybase. It can also
+be on Windows for access to any database which has a
+Windows ODBC driver.
+
+Gdbm does not use SQL. See gdbm.c for usage.
+
+
+Installation
+------------
+
+See INSTALL for installation instructions.
+
+
+Database interface
+------------------
+
+The database interface is a single function, sdb_query. Synopsis:
+
+        int sdb_query(char *url, char *query,
+                int (*callback)(int, char **, void *), void *closure)
+
+url is a string which identifies the driver and any necessary options
+such as the name of the database and user. The set of options is
+driver specific. Examples:
+
+	ingres:db=XXX
+        mysql:host=XXX:db=XXX:uid=XXX:pwd=XXX
+        postgres:host=XXX:db=XXX:port=XXX
+        oracle:uid=XXX:pwd=XXX OR oracle:uid=username/password@instance
+        sqlite:db=/full/path/to/db
+        sqlite3:db=/full/path/to/db
+        lago:host=XXX:port=XXX:db=XXX:uid=XXX:pwd=XXX
+        mimer:db=XXX:uid=XXX:pwd=XXX
+        odbc:dsn=postgresql
+	sdbd:host:port:url=XXX
+	shsql: (path to db in SHSQL_DB environment variable)
+	tds:host=XXX:port=XXX:uid=XXX:pwd=XXX
+	text:/path/to/db/ (note trailing slash)
+
+Some drivers also get parameters from environment variables, such
+as ORACLE_SID.
+
+query is an SQL string sent to the database, such as
+
+        select count(*) from crontab where host='myhost'
+
+sdb_query calls the callback once for each row returned. No rows does
+not necessarily indicate an error condition; for example
+
+        delete from crontab where host='myhost'
+
+does not return anything. sdb_query returns the number of rows or -1
+for error.
+
+The callback takes three arguments, an integer indicating the number
+of columns in the reply, an array of pointers to the fields and a
+pointer to some arbitrary data that the callback might need.
+Values are always returned as strings. Synopsis:
+
+        int callback(int n, char **p, void *closure)
+
+The file sdb_client.c contains a very simple line-mode client. Example:
+
+sh-2.03$ ./sdb_client oracle:uid=system/manager@ulric
+sdb> select * from counters
+serialno 1 
+serial 17 
+Return code: 2
+sdb> update counters set value=2 where name='serialno'
+Return code: 0
+sdb> select * from counters
+serialno 2 
+serial 17 
+Return code: 2
+sdb>
+
+
+Proxy daemon
+------------
+
+Sometimes linking directly with the library isn't practical,
+perhaps because an application is being distributed in binary form
+and there's no way to know what database will be used, or perhaps
+the application will be run on a different machine from where the
+database client libraries are installed.
+
+Sdbd to the rescue! This is a proxy daemon which handles the database
+communication on behalf of the application. As a result, there is
+no need for the application to be linked to database libraries or even
+libsdb itself; all that is handled by sdbd.
+
+An example client is provided in sdbd_client.c. It is very similar
+to sdb_client, except that it doesn't use any libsdb calls. Example:
+
+ulric@host1$ sdbd 2222
+
+ulric@host2$ sdbd_client host1 2222 postgres:host=host1:db=testdb
+sdbd> select * from foo
+Matilda Eriksson 
+Ulric Eriksson 
+Joel Eriksson 
+sdbd> 
+
+In this case, the database, the client libraries and libsdb are all
+installed on host1. Nothing except sdbd_client is needed on host2.
+
+Description of the protocol, as seen on the wire:
+
+1. Client sends url
+2. Server sends single space as acknowledgement
+3. Client sends query string
+4. Server sends number of columns in result, space-terminated
+5. Server sends column size in bytes, space-terminated
+6. Server sends column contents
+7. 5-6 are repeated for all additional columns
+8. 4-7 are repeated for all additional result rows
+9. Server sends the number 0.
+
+Everything is sent in ascii form, so it can be debugged by humans.
+Example:
+
+sh-2.05$ telnet localhost 2222
+Trying 127.0.0.1...
+Connected to localhost.
+Escape character is '^]'.
+postgres:host=localhost:db=testdb
+ select * from foo
+2 7 Matilda8 Eriksson2 5 Ulric8 Eriksson2 4 Joel8 Eriksson0
+Connection closed by foreign host.
+
