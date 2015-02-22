@@ -1,0 +1,108 @@
+# This is the platform-independent part of the Makefile
+
+PACKAGE = sdb
+MAJOR = 0
+MINOR = 10
+TEENY = 0
+VERSION = $(MAJOR).$(MINOR).$(TEENY)
+
+CC = gcc
+#PREFIX = /usr/local
+BINDIR = $(PREFIX)/bin
+LIBDIR = $(PREFIX)/lib
+MANDIR = $(PREFIX)/man
+INCDIR = $(PREFIX)/include
+
+all: .all
+
+PROGS = sdb-config sdb_client sdbd_client sdbd
+MAN3 = sdb.3 sdb_init.3 sdb_open.3 sdb_close.3 sdb_query.3
+MAN8 = sdbd.8
+MANS = $(MAN3) $(MAN8)
+DOCS = AUTHORS COPYING COPYING.LIB ChangeLog INSTALL NEWS README
+
+HEADERS = sdb.h
+
+SOURCES = common.c sdb.c \
+	gdbm_driver.c ingres_driver.c lago_driver.c mimer_driver.c msql_driver.c \
+	mysql_driver.c odbc_driver.c oracle_driver.c postgres_driver.c \
+	sdbd_driver.c shsql_driver.c sqlite_driver.c sqlite3_driver.c \
+	tds_driver.c text_driver.c
+
+STATICOBJ = common.o sdb.o \
+	gdbm_driver.o ingres_driver.o lago_driver.o mimer_driver.o msql_driver.o \
+	mysql_driver.o odbc_driver.o oracle_driver.o postgres_driver.o \
+	sdbd_driver.o shsql_driver.o sqlite_driver.o sqlite3_driver.o \
+	tds_driver.o text_driver.o
+
+$(STATICOBJ): $(HEADERS) Makefile
+
+SHAREDOBJ = common.lo sdb.lo \
+	gdbm_driver.lo ingres_driver.lo lago_driver.lo mimer_driver.lo msql_driver.lo \
+	mysql_driver.lo odbc_driver.lo oracle_driver.lo postgres_driver.lo \
+	sdbd_driver.lo shsql_driver.lo sqlite_driver.lo sqlite3_driver.lo \
+	tds_driver.lo text_driver.lo
+
+$(SHAREDOBJ): $(HEADERS) Makefile
+
+EXTRA_DIST = sdb-config.sh squid_sdb_auth.c $(MANS) $(DOCS) \
+	mimer_driver.ec mimer_driver.i README.text \
+	sdb_client.c sdbd_client.c sdbd.c common.h
+
+clean:
+	rm -f *.o *.lo *.a *.la static shared *.dylib
+	rm -f $(SHAREDLIB) $(STATICLIB) $(SOVERSION) $(PROGS)
+
+dist:
+	rm -rf $(PACKAGE)-$(VERSION)
+	mkdir $(PACKAGE)-$(VERSION)
+	cp configure config.in $(SOURCES) $(HEADERS) \
+		$(EXTRA_DIST) $(PACKAGE)-$(VERSION)
+	cp -r Makefiles $(PACKAGE)-$(VERSION)
+	tar cf - $(PACKAGE)-$(VERSION) | gzip > $(PACKAGE)-$(VERSION).tar.gz
+	rm -rf $(PACKAGE)-$(VERSION)
+
+mimer_driver.i: mimer_driver.ec
+	esql -c mimer_driver.ec mimer_driver.i
+
+sdb-config: sdb-config.sh Makefile
+	./sdb-config.sh "-I$(INCDIR) $(CFLAGS)" \
+		"-L$(LIBDIR) -lsdb $(LDFLAGS_CFG)" \
+		"$(VERSION)" > sdb-config
+	chmod 0755 sdb-config
+
+sdb_client: sdb_client.o sdb-config
+	$(CC) -I. -L. -lsdb $(LDFLAGS) -o $@ sdb_client.o
+
+sdbd_client: sdbd_client.o sdbd_driver.o sdb-config
+	$(CC) -I. -L. $(LDFLAGS) -o $@ sdbd_client.o sdbd_driver.o
+
+sdbd: sdbd.o sdb-config
+	$(CC) -I. -L. -lsdb $(LDFLAGS) -o $@ sdbd.o
+
+install-man:
+	mkdir -p $(MANDIR)/man3 && cp $(MAN3) $(MANDIR)/man3
+	mkdir -p $(MANDIR)/man8 && cp $(MAN8) $(MANDIR)/man8
+
+uninstall-man:
+	cd $(MANDIR)/man3 && rm -f $(MAN3)
+	cd $(MANDIR)/man8 && rm -f $(MAN8)
+
+install-prog: $(PROGS)
+	mkdir -p $(BINDIR) && cp $(PROGS) $(BINDIR)
+
+uninstall-prog:
+	cd $(BINDIR) && rm -f $(PROGS)
+
+install-header:
+	mkdir -p $(INCDIR) && cp $(HEADERS) $(INCDIR)
+
+uninstall-header:
+	cd $(INCDIR) && rm -f $(HEADERS)
+
+install:
+	make install-lib install-prog install-header install-man
+
+uninstall:
+	make uninstall-lib uninstall-prog uninstall-header uninstall-man
+

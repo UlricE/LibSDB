@@ -1,0 +1,396 @@
+#!/bin/sh
+
+test -z "$TMP" && TMP=/tmp
+PREFIX=/usr/local
+
+usage()
+{
+	cat << EOF
+Usage: ./configure [OPTION]... [VAR=VALUE]...
+
+To assign environment variables (e.g., CC, CFLAGS...), specify them as
+VAR=VALUE.  See below for descriptions of some of the useful variables.
+
+Defaults for the options are specified in brackets.
+
+Configuration:
+  -h, --help              display this help and exit
+
+Installation directories:
+  --prefix=PREFIX         install architecture-independent files in PREFIX
+                          [$PREFIX]
+
+By default, 'make install' will install all the files in
+'$PREFIX/bin', '$PREFIX/lib' etc.  You can specify
+an installation prefix other than '$PREFIX' using '--prefix',
+for instance '--prefix=$HOME'.
+
+
+Platform:
+  --platform=PLATFORM     select platform specific Makefile
+
+Use a file of your choosing from the Makefiles directory.
+Default: autodetect.
+
+
+Optional Packages:
+  --with-gdbm             enable trivial Gdbm queries
+  --with-ingres           enable Ingres queries
+  --with-lago             enable Lago database queries
+  --with-mimer            enable Mimer database support
+  --with-msql             enable MiniSQL database queries
+  --with-mysql            enable Mysql database queries
+  --with-odbc=library     enable database queries over ODBC
+  --with-oracle           enable Oracle database queries
+  --with-postgres         enable Postgres database queries
+  --with-shsql            enable shSQL/QUISP queries
+  --with-sqlite           enable Sqlite database queries
+  --with-sqlite3          enable Sqlite version 3 database queries
+  --with-tds              enable Microsoft SQL and Sybase
+  --disable-static        do not build static library
+  --disable-shared        do not build dynamic library
+
+Report bugs to <ulric@siag.nu>.
+EOF
+
+	exit
+}
+
+DIRS=
+SHAREDLIB='$(SHAREDLIB)'
+STATICLIB='$(STATICLIB)'
+
+trylib()
+{
+        echo "int main(){main();}" > tryconf.c
+	echo Looking for "$1"
+        #echo gcc tryconf.c $DIRS "$1" $LDFLAGS
+        gcc tryconf.c $DIRS "$1" $LDFLAGS > /dev/null 2>&1
+}
+
+tryheader()
+{
+	cat < EOF > tryconf.c
+#include <$1>
+int x;
+EOF
+	gcc tryconf.c $LDFLAGS > /dev/null 2>&1
+}
+
+tryprog()
+{
+	PROG=`which $1`
+	test ! -z "$PROG" -a -x "$PROG"
+}
+
+if trylib -lsocket; then
+	LDFLAGS="$LDFLAGS -lsocket"
+	LDFLAGS_CFG="$LDFLAGS_CFG -lsocket"
+fi
+
+if trylib -lnsl; then
+	LDFLAGS="$LDFLAGS -lnsl"
+	LDFLAGS_CFG="$LDFLAGS_CFG -lnsl"
+fi
+
+UNAME=`uname`
+case "$UNAME" in
+Darwin )
+	PLATFORM=Darwin
+	;;
+Linux )
+	PLATFORM=Linux
+	;;
+* )
+	PLATFORM=Other
+	;;
+esac
+
+CFLAGS=-Wall
+
+while test $# != 0; do
+	case "$1" in
+	--help | -h )
+		usage
+		;;
+	--prefix=* )
+		PREFIX=`echo "$1"|cut -f 2- -d =`
+		echo "PREFIX=$PREFIX"
+		;;
+	--platform=* )
+		PLATFORM=`echo "$1"|cut -f 2- -d =`
+		echo "PLATFORM=$PLATFORM"
+		;;
+	--with-gdbm )
+		echo "With gdbm"
+		LDFLAGS_CFG="$LDFLAGS_CFG -lgdbm"
+		if trylib -lgdbm; then
+			echo "gdbm found"
+			LDFLAGS="$LDFLAGS -lgdbm"
+			CFLAGS="$CFLAGS -DHAVE_LIBGDBM"
+		else
+			echo "gdbm not found"
+			exit 1
+		fi
+		;;
+	--with-ingres )
+		echo "With Ingres"
+		if test -z "$II_SYSTEM"; then
+			echo "II_SYSTEM not set, giving up"
+			exit 1
+		fi
+		echo "II_SYSTEM=$II_SYSTEM"
+		LDFLAGS="$LDFLAGS -L$II_SYSTEM/ingres/lib -lingres"
+		LDFLAGS_CFG="$LDFLAGS_CFG -L$II_SYSTEM/ingres/lib -lingres"
+		CFLAGS="$CFLAGS -I$II_SYSTEM/ingres/files"
+		CFLAGS_CFG="$CFLAGS_CFG -I$II_SYSTEM/ingres/files"
+		if trylib -lingres; then
+			echo "ingres found"
+			CFLAGS="$CFLAGS -DHAVE_INGRES"
+		else
+			echo "ingres not found"
+			exit 1
+		fi
+		if trylib -lpthread; then
+			echo "pthread found"
+			LDFLAGS="$LDFLAGS -lpthread"
+			LDFLAGS_CFG="$LDFLAGS_CFG -lpthread"
+		fi
+		if trylib -ldl; then
+			echo "dl found"
+			LDFLAGS="$LDFLAGS -ldl"
+			LDFLAGS_CFG="$LDFLAGS_CFG -ldl"
+		fi
+		if trylib -lcrypt; then
+			echo "crypt found"
+			LDFLAGS="$LDFLAGS -lcrypt"
+			LDFLAGS_CFG="$LDFLAGS_CFG -lcrypt"
+		fi
+		if trylib -lm; then
+			echo "m found"
+			LDFLAGS="$LDFLAGS -lm"
+			LDFLAGS_CFG="$LDFLAGS_CFG -lm"
+		fi
+		;;
+	--with-lago )
+		echo "With lago"
+		if test -d /usr/local/lago/lib; then
+			LDFLAGS="$LDFLAGS -L/usr/local/lago/lib"
+			LDFLAGS_CFG="$LDFLAGS_CFG -L/usr/local/lago/lib"
+		fi
+		LDFLAGS_CFG="$LDFLAGS_CFG -llago"
+		if trylib -llago; then
+			echo "lago found"
+			LDFLAGS="$LDFLAGS -llago"
+			CFLAGS="$CFLAGS -DHAVE_LIBLAGO"
+		else
+			echo "lago not found"
+			exit 1
+		fi
+		;;
+	--with-msql )
+		echo "With msql"
+		if test -d /usr/local/Hughes; then
+			LDFLAGS="$LDFLAGS -L/usr/local/Hughes/lib"
+			LDFLAGS_CFG="$LDFLAGS_CFG -L/usr/local/Hughes/lib"
+			CFLAGS="$CFLAGS -I/usr/local/Hughes/include"
+			CFLAGS_CFG="$CFLAGS_CFG -I/usr/local/Hughes/include"
+		fi
+		LDFLAGS_CFG="$LDFLAGS_CFG -lmsql"
+		if trylib -lmsql; then
+			echo "msql found"
+			LDFLAGS="$LDFLAGS -lmsql"
+			CFLAGS="$CFLAGS -DHAVE_LIBMSQL"
+		else
+			echo "msql not found"
+			exit 1
+		fi
+		;;
+	--with-mysql )
+		echo "With mysql"
+		if tryprog mysql_config; then
+			echo "mysql_config found"
+			LDFLAGS_CFG="$LDFLAGS_CFG `mysql_config --libs`"
+			LDFLAGS="$LDFLAGS `mysql_config --libs`"
+			CFLAGS_CFG="$CFLAGS_CFG `mysql_config --cflags`"
+			CFLAGS="$CFLAGS `mysql_config --cflags`"
+			CFLAGS="$CFLAGS -DHAVE_LIBMYSQLCLIENT"
+		else
+			echo "mysql_config not found"
+			exit 1
+		fi
+		;;
+	--with-sqlite )
+		echo "With sqlite"
+		if trylib -lsqlite; then
+			echo "sqlite found"
+			LDFLAGS="$LDFLAGS -lsqlite"
+			LDFLAGS_CFG="$LDFLAGS_CFG -lsqlite"
+			CFLAGS="$CFLAGS -DHAVE_LIBSQLITE"
+		else
+			echo "sqlite not found"
+			exit 1
+		fi
+		;;
+	--with-sqlite3 )
+		echo "With sqlite3"
+		if trylib -lsqlite3; then
+			echo "sqlite3 found"
+			LDFLAGS="$LDFLAGS -lsqlite3"
+			LDFLAGS_CFG="$LDFLAGS_CFG -lsqlite3"
+			CFLAGS="$CFLAGS -DHAVE_LIBSQLITE3"
+		else
+			echo "sqlite3 not found"
+			exit 1
+		fi
+		;;
+	--with-mimer )
+		echo "With mimer"
+		LDFLAGS_CFG="$LDFLAGS_CFG -lmimer"
+		if trylib -lpthread; then
+			echo "pthread found"
+			LDFLAGS_CFG="-lpthread $LDFLAGS_CFG"
+			LDFLAGS="-lpthread $LDFLAGS"
+		fi
+		if trylib -lmimer; then
+			echo "mimer found"
+			LDFLAGS_CFG="-lmimer $LDFLAGS"
+			LDFLAGS="-lmimer $LDFLAGS"
+			CFLAGS="$CFLAGS -DHAVE_LIBMIMER"
+		else
+			echo "mimer not found"
+			exit 1
+		fi
+		;;
+	--with-postgres )
+		echo "With postgres"
+		if test -d /usr/local/pgsql; then
+			CFLAGS_CFG="$CFLAGS_CFG -I/usr/local/pgsql/include"
+			LDFLAGS_CFG="$LDFLAGS_CFG -L/usr/local/pgsql/lib -lpq"
+			CFLAGS="$CFLAGS -I/usr/local/pgsql/include"
+			LDFLAGS="$LDFLAGS -L/usr/local/pgsql/lib"
+		fi
+		if trylib -lpq; then
+			echo "pq found"
+			LDFLAGS="$LDFLAGS -lpq"
+			CFLAGS="$CFLAGS -DHAVE_LIBPQ"
+		else
+			echo "pq not found"
+			exit 1
+		fi
+		;;
+	--with-oracle* )
+		echo "With oracle"
+		x=`echo "$1"|cut -f 2- -s -d =`
+		if test ! -z "$x"; then
+			ORACLE_HOME="$x"
+			export ORACLE_HOME
+		fi
+		if test -z "$ORACLE_HOME"; then
+			echo "ORACLE_HOME not set, giving up"
+			exit 1
+		fi
+		echo "ORACLE_HOME=$ORACLE_HOME"
+		CFLAGS_CFG="$CFLAGS_CFG -I$ORACLE_HOME/rdbms/demo -I$ORACLE_HOME/rdbms/public -I$ORACLE_HOME/sdk/include"
+		LDFLAGS_CFG="$LDFLAGS_CFG -L$ORACLE_HOME/lib -L$ORACLE_HOME"
+		CFLAGS="$CFLAGS -I$ORACLE_HOME/rdbms/demo -I$ORACLE_HOME/rdbms/public -I$ORACLE_HOME/sdk/include"
+		LDFLAGS="$LDFLAGS -L$ORACLE_HOME/lib -L$ORACLE_HOME"
+		if trylib -lclntsh; then
+			echo "clntsh found"
+			LDFLAGS="$LDFLAGS -lclntsh"
+			LDFLAGS_CFG="$LDFLAGS_CFG -lclntsh"
+			CFLAGS="$CFLAGS -DHAVE_LIBCLNTSH"
+		else
+			# Maybe they have renamed it? :D
+			CLNTSH=`find $ORACLE_HOME -type f -name 'libclntsh.so*'|head -1`
+			if test "$CLNTSH"; then
+				echo "$CLNTSH found"
+				LDFLAGS="$LDFLAGS $CLNTSH"
+				LDFLAGS_CFG="$LDFLAGS_CFG $CLNTSH"
+				CFLAGS="$CFLAGS -DHAVE_LIBCLNTSH"
+			else
+				echo "clntsh not found"
+				exit 1
+			fi
+		fi
+		;;
+	--with-odbc* )
+		echo "enable database queries over ODBC"
+		ODBCLIB=`echo "$1"|cut -f 2- -s -d =`
+		test -z "$ODBCLIB" && ODBCLIB=odbc
+		echo "ODBCLIB=$ODBCLIB"
+		if trylib -l$ODBCLIB; then
+			echo "$ODBCLIB found"
+			LDFLAGS="$LDFLAGS -l$ODBCLIB"
+			if tryheader windows.h; then
+				CFLAGS="$CFLAGS -DHAVE_WINDOWS_H"
+			fi
+			CFLAGS="$CFLAGS -DHAVE_LIBODBC"
+		else
+			echo "$ODBCLIB not found"
+			exit 1
+		fi
+		;;
+	--with-shsql )
+		echo "With shsql"
+		LDFLAGS_CFG="$LDFLAGS_CFG -lshsql"
+		if trylib -lshsql; then
+			echo "shsql found"
+			LDFLAGS="$LDFLAGS -lshsql"
+			CFLAGS="$CFLAGS -DHAVE_LIBSHSQL"
+		else
+			echo "shsql not found"
+			exit 1
+		fi
+		;;
+	--with-tds )
+		echo "With TDS"
+		LDFLAGS_CFG="$LDFLAGS_CFG -ltds"
+		if trylib -ltds; then
+			echo "tds found"
+			LDFLAGS="$LDFLAGS -ltds"
+			CFLAGS="$CFLAGS -DHAVE_LIBTDS"
+			CFLAGS_CFG="$CFLAGS_CFG -DHAVE_LIBTDS"
+		else
+			echo "tds not found"
+			exit 1
+		fi
+		;;
+	--disable-static )
+		echo "Do not build static library"
+		STATICLIB=
+		;;
+	--disable-shared )
+		echo "Do not build shared library"
+		SHAREDLIB=
+		;;
+	* )
+		usage
+		;;
+	esac
+	shift
+done
+
+rm -f Makefile
+
+echo "LDFLAGS = $LDFLAGS" >> Makefile
+echo "CFLAGS = $CFLAGS" >> Makefile
+echo "LDFLAGS_CFG = $LDFLAGS_CFG" >> Makefile
+echo "CFLAGS_CFG = $CFLAGS_CFG" >> Makefile
+echo "PREFIX = $PREFIX" >> Makefile
+
+cat config.in >> Makefile
+
+echo "$PLATFORM ($UNAME)"
+
+if test ! -s "Makefiles/$PLATFORM"; then
+	echo "No Makefile for $PLATFORM"
+	exit 1
+fi
+
+cat "Makefiles/$PLATFORM" >> Makefile
+
+#echo '.all: $(SHAREDLIB) $(STATICLIB) $(PROGS)' >> Makefile
+echo '.all: '$SHAREDLIB' '$STATICLIB' $(PROGS)' >> Makefile
+
+rm -f a.out tryconf.c
